@@ -10,7 +10,7 @@ args = vars(ap.parse_args())
 
 #输入数据集文件夹的一级目录，导出一个5D张量数据
 #(samples, frame, rows, cols, channels)
-#此张量作为导入3d卷积神经网络的参数格式 
+#此张量作为导入3d卷积神经网络的参数格式
 def read_and_initial_data (main_path):
     categories = os.listdir(main_path)
     traning_set = np.zeros(shape=(1, 15, 200, 200, 3))
