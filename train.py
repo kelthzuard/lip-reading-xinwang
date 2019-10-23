@@ -2,7 +2,7 @@ import cv2
 import os
 import argparse
 import numpy as np
-from sklearn import preprocessing
+from keras.preprocessing.text import Tokenizer
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--input", required=True,
@@ -12,6 +12,7 @@ ap.add_argument("-l", "--label", required=True,
 args = vars(ap.parse_args())
 
 
+# 从lip_train.txt读取label对应值进一个dict里
 def read_and_initial_label(file_path):
     label = {}
     f = open(file_path, "r", encoding="utf-8")
@@ -24,6 +25,22 @@ def read_and_initial_label(file_path):
         line = line[:-1]
     f.close()
     return label
+
+
+# 将label中的中文单词进行序列化并进行one-hot编码
+def encode_label(label):
+    tokenizer = Tokenizer()
+    tokenizer.fit_on_texts(label)
+    sequences = tokenizer.texts_to_sequences(label)
+    one_hot_results = tokenizer.texts_to_matrix(label, mode='binary')
+    return one_hot_results, tokenizer
+
+
+# 解码
+def decode_label(label, tokenizer):
+    # 这个地方怎么去反向解码好像灭有找到api，那就只有从sequences去操作吗还是怎么的
+    # 太晚了，以后再弄，应该不急着用
+    return 0
 
 
 # 输入数据集文件夹的一级目录，导出一个5D张量数据
@@ -48,6 +65,7 @@ def read_and_initial_data(main_path, label_list):
                     one_package_vector = img_reshaped
                 else:
                     one_package_vector = np.concatenate((one_package_vector, img_reshaped), axis=0)
+        # 把sample对应的label添加进label数组中
         label.append(label_list[package])
         while one_package_vector.shape[0] < 15:
             padding_vector = np.zeros(shape=(1, 200, 200, 3))
@@ -64,5 +82,5 @@ def read_and_initial_data(main_path, label_list):
 
 
 label_list = read_and_initial_label((args["label"]))
-traning_dataset, label = read_and_initial_data(args["input"], label_list)
-print(label)
+training_data, label = read_and_initial_data(args["input"], label_list)
+label = encode_label(label)
