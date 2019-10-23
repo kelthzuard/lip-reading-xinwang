@@ -2,16 +2,36 @@ import cv2
 import os
 import argparse
 import numpy as np
+from sklearn import preprocessing
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--input", required=True,
                 help="path to input file categories")
+ap.add_argument("-l", "--label", required=True,
+                help="path to input label")
 args = vars(ap.parse_args())
 
-#输入数据集文件夹的一级目录，导出一个5D张量数据
-#(samples, frame, rows, cols, channels)
-#此张量作为导入3d卷积神经网络的参数格式
-def read_and_initial_data (main_path):
+
+def read_and_initial_label(file_path):
+    label = {}
+    f = open(file_path, "r", encoding="utf-8")
+    line = f.readline()
+    line = line[:-1]
+    while line:
+        label_array = line.split()
+        label[label_array[0]] = label_array[1]
+        line = f.readline()
+        line = line[:-1]
+    f.close()
+    return label
+
+
+# 输入数据集文件夹的一级目录，导出一个5D张量数据
+# (samples, frame, rows, cols, channels)
+# 此张量作为导入3d卷积神经网络的参数格式
+def read_and_initial_data(main_path, label_list):
+    # 初始化一维标签数组
+    label = []
     categories = os.listdir(main_path)
     traning_set = np.zeros(shape=(1, 15, 200, 200, 3))
     for index, package in enumerate(categories):
@@ -20,14 +40,15 @@ def read_and_initial_data (main_path):
         for root, dirs, files in os.walk(package_path):
             for innerIndex, file in enumerate(files):
                 file_path = os.path.join(package_path, file)
-                #使用opencv读取图片
+                # 使用opencv读取图片
                 img_readed = cv2.imread(file_path)
-                #给图片张量添加帧数维度，并且给不足15帧的图片集用0补足15帧
+                # 给图片张量添加帧数维度，并且给不足15帧的图片集用0补足15帧
                 img_reshaped = img_readed.reshape(1, img_readed.shape[0], img_readed.shape[1], img_readed.shape[2])
                 if innerIndex == 0:
                     one_package_vector = img_reshaped
                 else:
                     one_package_vector = np.concatenate((one_package_vector, img_reshaped), axis=0)
+        label.append(label_list[package])
         while one_package_vector.shape[0] < 15:
             padding_vector = np.zeros(shape=(1, 200, 200, 3))
             one_package_vector = np.concatenate((one_package_vector, padding_vector), axis=0)
@@ -39,7 +60,9 @@ def read_and_initial_data (main_path):
             traning_set = one_package_vector_reshaped
         else:
             traning_set = np.concatenate((traning_set, one_package_vector_reshaped), axis=0)
-    return traning_set
+    return traning_set, label
 
 
-traning_dataset = read_and_initial_data(args["input"])
+label_list = read_and_initial_label((args["label"]))
+traning_dataset, label = read_and_initial_data(args["input"], label_list)
+print(label)
