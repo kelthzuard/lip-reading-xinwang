@@ -15,6 +15,12 @@ ap.add_argument("-l", "--label", required=True,
                 help="path to input label")
 args = vars(ap.parse_args())
 
+# **********
+# 定义图片参数
+# **********
+img_rows = 200
+img_cols = 200
+img_frames = 15
 
 # 从lip_train.txt读取label对应值进一个dict里
 def read_and_initial_label(file_path):
@@ -101,9 +107,6 @@ label = encode_label(label)
 # *****************
 # 定义3D卷积网络模型参数
 # *****************
-img_rows = 200
-img_cols = 200
-img_frames = 15
 patch_size = 15  # 每批次训练数量
 filters_3D = [32, 50]  # 卷积核数量
 conv_3D = [5, 5]  # 卷积核尺寸
