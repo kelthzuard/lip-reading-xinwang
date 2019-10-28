@@ -6,7 +6,7 @@ from keras.preprocessing.text import Tokenizer
 
 from keras.models import Sequential, load_model
 from keras.layers.core import Dense, Dropout, Activation, Flatten
-from keras.layers.convolutional import Convolution3D, MaxPooling3D
+from keras.layers.convolutional import Conv3D, MaxPooling3D
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--input", required=True,
@@ -123,36 +123,32 @@ if (model_exists):
 else:
     model = Sequential()
 
-    model.add(Convolution3D(
+    model.add(Conv3D(
         filters_3D[0],
-        kernel_dim1=conv_3D[0],  # depth
-        kernel_dim2=conv_3D[0],  # rows
-        kernel_dim3=conv_3D[0],  # cols
-        input_shape=(3, img_rows, img_cols, patch_size),
+        (conv_3D[0], conv_3D[0], conv_3D[0]),
+        input_shape=(3, img_rows, img_cols, img_frames),
         activation='relu'
     ))
 
-    model.add(MaxPooling3D(pool_size=(pool_3D[0], pool_3D[0], pool_3D[0])))
+    model.add(MaxPooling3D(pool_size=(2, 2, 2), data_format="channels_last"))
 
-    model.add(Convolution3D(
+    model.add(Conv3D(
         filters_3D[1],
-        kernel_dim1=conv_3D[1],  # depth
-        kernel_dim2=conv_3D[1],  # rows
-        kernel_dim3=conv_3D[1],  # cols
+        (conv_3D[0], conv_3D[0], conv_3D[0]),
         activation='relu'
     ))
 
-    model.add(MaxPooling3D(pool_size=(pool_3D[1], pool_3D[1], pool_3D[1])))
+    model.add(MaxPooling3D(pool_size=(pool_3D[1], pool_3D[1], pool_3D[1]), data_format="channels_last"))
 
     model.add(Dropout(0.5))
 
     model.add(Flatten())
 
-    model.add(Dense(128, init='normal', activation='relu'))
+    model.add(Dense(128, kernel_initializer='normal', activation='relu'))
 
     model.add(Dropout(0.5))
 
-    model.add(Dense(6, init='normal'))
+    model.add(Dense(6, kernel_initializer='normal'))
 
     model.add(Activation('softmax'))
 
