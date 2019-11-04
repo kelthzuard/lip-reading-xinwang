@@ -20,7 +20,7 @@ args = vars(ap.parse_args())
 # **********
 img_rows = 200
 img_cols = 200
-img_frames = 15
+img_frames = 20
 
 # 从lip_train.txt读取label对应值进一个dict里
 def read_and_initial_label(file_path):
@@ -77,6 +77,7 @@ def read_and_initial_data(main_path, label_list):
                     one_package_vector = np.concatenate((one_package_vector, img_reshaped), axis=0)
         # 把sample对应的label添加进label数组中
         label.append(label_list[package])
+        print(one_package_vector.shape[0])
         while one_package_vector.shape[0] < img_frames:
             padding_vector = np.zeros(shape=(1, img_rows, img_cols, 3))
             one_package_vector = np.concatenate((one_package_vector, padding_vector), axis=0)
@@ -102,6 +103,7 @@ def pre_dealing_data(train_set):
 
 label_list = read_and_initial_label((args["label"]))
 training_data, label = read_and_initial_data(args["input"], label_list)
+print(len(training_data))
 label = encode_label(label)
 
 # *****************
@@ -153,4 +155,6 @@ else:
     model.add(Activation('softmax'))
 
     model.compile(loss='categorical_crossentropy', optimizer='RMSprop', metrics=['mse', 'accuracy'])
+
+
 
