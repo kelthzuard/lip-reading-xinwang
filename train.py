@@ -7,11 +7,12 @@ from keras.preprocessing.text import Tokenizer
 from keras.models import Sequential, load_model
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.layers.convolutional import Conv3D, MaxPooling3D
+from keras.layers import ConvLSTM2D,LSTM
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-i", "--input", required=True,
+ap.add_argument("-i", "--input", required=False,
                 help="path to input file categories")
-ap.add_argument("-l", "--label", required=True,
+ap.add_argument("-l", "--label", required=False,
                 help="path to input label")
 args = vars(ap.parse_args())
 
@@ -20,7 +21,7 @@ args = vars(ap.parse_args())
 # **********
 img_rows = 200
 img_cols = 200
-img_frames = 20
+img_frames = 19
 
 # 从lip_train.txt读取label对应值进一个dict里
 def read_and_initial_label(file_path):
@@ -77,7 +78,6 @@ def read_and_initial_data(main_path, label_list):
                     one_package_vector = np.concatenate((one_package_vector, img_reshaped), axis=0)
         # 把sample对应的label添加进label数组中
         label.append(label_list[package])
-        print(one_package_vector.shape[0])
         while one_package_vector.shape[0] < img_frames:
             padding_vector = np.zeros(shape=(1, img_rows, img_cols, 3))
             one_package_vector = np.concatenate((one_package_vector, padding_vector), axis=0)
@@ -89,7 +89,7 @@ def read_and_initial_data(main_path, label_list):
             training_set = one_package_vector_reshaped
         else:
             training_set = np.concatenate((training_set, one_package_vector_reshaped), axis=0)
-    training_set = pre_dealing_data(training_set)
+    # training_set = pre_dealing_data(training_set)
     return training_set, label
 
 
@@ -103,7 +103,6 @@ def pre_dealing_data(train_set):
 
 label_list = read_and_initial_label((args["label"]))
 training_data, label = read_and_initial_data(args["input"], label_list)
-print(len(training_data))
 label = encode_label(label)
 
 # *****************
@@ -128,7 +127,7 @@ else:
     model.add(Conv3D(
         filters_3D[0],
         (conv_3D[0], conv_3D[0], conv_3D[0]),
-        input_shape=(3, img_rows, img_cols, img_frames),
+        input_shape=(img_frames, img_rows, img_cols, 3),
         activation='relu'
     ))
 
@@ -144,6 +143,10 @@ else:
 
     model.add(Dropout(0.5))
 
+    model.add(ConvLSTM2D(
+        filters=40, kernel_size=(3, 3), padding="same"
+    ))
+
     model.add(Flatten())
 
     model.add(Dense(128, kernel_initializer='normal', activation='relu'))
@@ -156,6 +159,9 @@ else:
 
 
     model.compile(loss='categorical_crossentropy', optimizer='RMSprop', metrics=['mse', 'accuracy'])
+
+print(training_data.ndim)
+model.fit(training_data, label, batch_size=5, epochs=10)
 
 
 
