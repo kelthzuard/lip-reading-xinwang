@@ -153,4 +153,3 @@ else:
     model.add(Activation('softmax'))
 
     model.compile(loss='categorical_crossentropy', optimizer='RMSprop', metrics=['mse', 'accuracy'])
-
