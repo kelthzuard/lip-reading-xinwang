@@ -29,32 +29,34 @@ else:
         filters_3D_1,
         (kernel_1,kernel_2)
     ))
-
+    #第一层最大池化层
     model.add(MaxPooling3D())
-
+    #第二层卷积层
     model.add(Conv3D(
 
     ))
-
+    #第二层最大池化层
     model.add(MaxPooling3D())
-
+    #第三层卷积层
     model.add(Conv3D(
 
     ))
-
+    #第三层最大池化层
     model.add(MaxPooling3D())
-
+    #第一层dropout层防止过拟合
     model.add(Dropout())
-
+    #第一层LSTM层
     model.add(LSTM())
-
+    #第二层LSTM层
     model.add(LSTM())
-
+    #第二层dropout层防止过拟合
     model.add(Dropout())
-
+    #第一层Flatten层
     model.add(Flatten())
-
+    #第一层全连接层
     model.add(Dense())
-
+    #第二层全连接层
+    model.add(Dense())
+    #softmax方法进行学习
     model.add(Activation('softmax'))
 
