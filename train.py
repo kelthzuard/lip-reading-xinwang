@@ -44,8 +44,7 @@ def encode_label(label):
     tokenizer.fit_on_texts(label)
     sequences = tokenizer.texts_to_sequences(label)
     one_hot_results = tokenizer.texts_to_matrix(label, mode='binary')
-    return one_hot_results, tokenizer
-
+    return one_hot_results
 
 # 解码
 def decode_label(label, tokenizer):
@@ -157,11 +156,13 @@ else:
 
     model.add(Activation('softmax'))
 
-
     model.compile(loss='categorical_crossentropy', optimizer='RMSprop', metrics=['mse', 'accuracy'])
 
-print(training_data.ndim)
-model.fit(training_data, label, batch_size=5, epochs=10)
+model.fit(training_data,
+          label,
+          batch_size=2,
+          epochs=1
+          )
 
 
 
