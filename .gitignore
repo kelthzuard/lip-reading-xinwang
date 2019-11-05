@@ -3,3 +3,4 @@
 /venv
 /.idea
 /model.h5
+/backup.py

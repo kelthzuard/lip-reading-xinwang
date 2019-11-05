@@ -4,10 +4,12 @@ import argparse
 import numpy as np
 from keras.preprocessing.text import Tokenizer
 
+from DataGenerator import DataGenerator
+
 from keras.models import Sequential, load_model
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.layers.convolutional import Conv3D, MaxPooling3D
-from keras.layers import ConvLSTM2D,LSTM
+from keras.layers import ConvLSTM2D, LSTM
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--input", required=False,
@@ -17,11 +19,15 @@ ap.add_argument("-l", "--label", required=False,
 args = vars(ap.parse_args())
 
 # **********
-# 定义图片参数
+# 定义参数
 # **********
 img_rows = 200
 img_cols = 200
 img_frames = 19
+total_samples = None
+total_out_put = None
+batch_size = 3  # 每批次训练数量
+
 
 # 从lip_train.txt读取label对应值进一个dict里
 def read_and_initial_label(file_path):
@@ -38,80 +44,36 @@ def read_and_initial_label(file_path):
     return label
 
 
-# 将label中的中文单词进行序列化并进行one-hot编码
+def reform_label_order(main_path, label_list):
+    label = []
+    total_samples = total_out_put = 0
+    categories = os.listdir(main_path)
+    for index, package in enumerate(categories):
+        label.append(label_list[package])
+        total_samples  = total_samples + 1 # 确定所有样本数量
+    return label, total_samples
+
+
 def encode_label(label):
     tokenizer = Tokenizer()
     tokenizer.fit_on_texts(label)
     sequences = tokenizer.texts_to_sequences(label)
     one_hot_results = tokenizer.texts_to_matrix(label, mode='binary')
-    return one_hot_results
-
-# 解码
-def decode_label(label, tokenizer):
-    # 这个地方怎么去反向解码好像灭有找到api，那就只有从sequences去操作吗还是怎么的
-    # 太晚了，以后再弄，应该不急着用
-    return 0
-
-
-# 输入数据集文件夹的一级目录，导出一个5D张量数据
-# (samples, frame, rows, cols, channels)
-# 此张量作为导入3d卷积神经网络的参数格式
-def read_and_initial_data(main_path, label_list):
-    # 初始化一维标签数组
-    label = []
-    categories = os.listdir(main_path)
-    training_set = np.zeros(shape=(1, img_frames, img_rows, img_cols, 3))
-    for index, package in enumerate(categories):
-        package_path = os.path.join(main_path, package)
-        one_package_vector = np.zeros(shape=(1, img_rows, img_cols, 3))
-        for root, dirs, files in os.walk(package_path):
-            for innerIndex, file in enumerate(files):
-                file_path = os.path.join(package_path, file)
-                # 使用opencv读取图片
-                img_readed = cv2.imread(file_path)
-                # 给图片张量添加帧数维度，并且给不足15帧的图片集用0补足15帧
-                img_reshaped = img_readed.reshape(1, img_readed.shape[0], img_readed.shape[1], img_readed.shape[2])
-                if innerIndex == 0:
-                    one_package_vector = img_reshaped
-                else:
-                    one_package_vector = np.concatenate((one_package_vector, img_reshaped), axis=0)
-        # 把sample对应的label添加进label数组中
-        label.append(label_list[package])
-        while one_package_vector.shape[0] < img_frames:
-            padding_vector = np.zeros(shape=(1, img_rows, img_cols, 3))
-            one_package_vector = np.concatenate((one_package_vector, padding_vector), axis=0)
-        one_package_vector_reshaped = one_package_vector.reshape(1, one_package_vector.shape[0],
-                                                                 one_package_vector.shape[1],
-                                                                 one_package_vector.shape[2],
-                                                                 one_package_vector.shape[3])
-        if index == 0:
-            training_set = one_package_vector_reshaped
-        else:
-            training_set = np.concatenate((training_set, one_package_vector_reshaped), axis=0)
-    # training_set = pre_dealing_data(training_set)
-    return training_set, label
-
-
-# 预处理数据
-def pre_dealing_data(train_set):
-    train_set = train_set.astype('float32')
-    train_set -= np.mean(train_set)
-    train_set /= np.max(train_set)
-    return train_set
+    return one_hot_results, len(one_hot_results[0])
 
 
 label_list = read_and_initial_label((args["label"]))
-training_data, label = read_and_initial_data(args["input"], label_list)
-label = encode_label(label)
+label, total_samples = reform_label_order(args["input"], label_list)
+label, total_out_put = encode_label(label)
+
+training_generation = DataGenerator(batch_size=batch_size, data_list=args["input"], label_list=label)
 
 # *****************
 # 定义3D卷积网络模型参数
 # *****************
-patch_size = 15  # 每批次训练数量
 filters_3D = [32, 50]  # 卷积核数量
 conv_3D = [5, 5]  # 卷积核尺寸
 pool_3D = [3, 3]  # 池化层尺寸
-
 
 # 加载模型
 model_exists = os.path.exists('model.h5')
@@ -152,18 +114,13 @@ else:
 
     model.add(Dropout(0.5))
 
-    model.add(Dense(6, kernel_initializer='normal'))
+    model.add(Dense(total_out_put, kernel_initializer='normal'))  # 这个地方的输出维度需要和最终的分类维度相同，需要根据数据集的不同指定
 
     model.add(Activation('softmax'))
 
     model.compile(loss='categorical_crossentropy', optimizer='RMSprop', metrics=['mse', 'accuracy'])
 
-model.fit(training_data,
-          label,
-          batch_size=2,
-          epochs=1
-          )
-
-
-
-
+model.fit_generator(training_generation,
+                    samples_per_epoch=total_samples,
+                    epochs=1
+                    )
