@@ -17,15 +17,17 @@ ap.add_argument("-i", "--input", required=False,
 ap.add_argument("-l", "--label", required=False,
                 help="path to input label")
 args = vars(ap.parse_args())
+input_path = args["input"]
+label_path = args["label"]
 
 # **********
 # 定义参数
 # **********
 img_rows = 200
 img_cols = 200
-img_frames = 20
-total_samples = None
-total_out_put = None
+img_frames = 21
+train_samples = 8000
+label_out_put = None
 batch_size = 5  # 每批次训练数量
 
 
@@ -46,12 +48,10 @@ def read_and_initial_label(file_path):
 
 def reform_label_order(main_path, label_list):
     label = []
-    total_samples = total_out_put = 0
     categories = os.listdir(main_path)
     for index, package in enumerate(categories):
         label.append(label_list[package])
-        total_samples  = total_samples + 1 # 确定所有样本数量
-    return label, total_samples
+    return label
 
 
 def encode_label(label):
@@ -59,14 +59,27 @@ def encode_label(label):
     tokenizer.fit_on_texts(label)
     sequences = tokenizer.texts_to_sequences(label)
     one_hot_results = tokenizer.texts_to_matrix(label, mode='binary')
-    return one_hot_results, len(one_hot_results[0])
+    return one_hot_results
 
 
-label_list = read_and_initial_label((args["label"]))
-label, total_samples = reform_label_order(args["input"], label_list)
-label, total_out_put = encode_label(label)
+label_list = read_and_initial_label(label_path)
+label = reform_label_order(input_path, label_list)
+label = encode_label(label)
+label_out_put = len(label[0])
 
-training_generation = DataGenerator(batch_size=batch_size, data_list=args["input"], label_list=label)
+# 划分训练集和测试集
+train_categories = os.listdir(input_path)[:train_samples]
+train_label = label[:train_samples]
+training_generation = DataGenerator(batch_size=batch_size,
+                                    data_list=train_categories,
+                                    label_list=train_label,
+                                    main_path=input_path)
+validation_categories = os.listdir(input_path)[(train_samples+1):]
+validation_label = label[(train_samples+1):]
+validation_generation = DataGenerator(batch_size=batch_size,
+                                      data_list=validation_categories,
+                                      label_list=validation_label,
+                                      main_path=input_path)
 
 # *****************
 # 定义3D卷积网络模型参数
@@ -114,13 +127,15 @@ else:
 
     model.add(Dropout(0.5))
 
-    model.add(Dense(total_out_put, kernel_initializer='normal'))  # 这个地方的输出维度需要和最终的分类维度相同，需要根据数据集的不同指定
+    model.add(Dense(label_out_put, kernel_initializer='normal'))  # 这个地方的输出维度需要和最终的分类维度相同，需要根据数据集的不同指定
 
     model.add(Activation('softmax'))
 
     model.compile(loss='categorical_crossentropy', optimizer='RMSprop', metrics=['accuracy'])
 
-model.fit_generator(training_generation,
-                    samples_per_epoch=total_samples,
-                    epochs=1
-                    )
+    model.fit_generator(
+                        generator=training_generation,
+                        validation_data=validation_generation,
+                        samples_per_epoch=train_samples,
+                        epochs=1
+                        )

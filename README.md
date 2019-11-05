@@ -13,3 +13,4 @@
 加入ConvLstm2D层，并成功训练，还存在着较大的bug，后续再改，还需改造使用generator训练
 # 2019/11/5 汪腾睿
 图片读取重写为generator形式，使用fit_generator进行训练。
+划分训练集和测试集，训练。
