@@ -1,1 +1,7 @@
 /img
+/lip_train
+/venv
+/.idea
+/model.h5
+/backup.py
+/__pycache__
