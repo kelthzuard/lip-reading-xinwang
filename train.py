@@ -26,7 +26,7 @@ img_cols = 200
 img_frames = 20
 total_samples = None
 total_out_put = None
-batch_size = 3  # 每批次训练数量
+batch_size = 5  # 每批次训练数量
 
 
 # 从lip_train.txt读取label对应值进一个dict里
@@ -118,7 +118,7 @@ else:
 
     model.add(Activation('softmax'))
 
-    model.compile(loss='categorical_crossentropy', optimizer='RMSprop', metrics=['mse', 'accuracy'])
+    model.compile(loss='categorical_crossentropy', optimizer='RMSprop', metrics=['accuracy'])
 
 model.fit_generator(training_generation,
                     samples_per_epoch=total_samples,
