@@ -5,7 +5,7 @@ import os
 
 img_rows = 200
 img_cols = 200
-img_frames = 19
+img_frames = 20
 
 
 def pre_dealing_data(train_set):

@@ -23,7 +23,7 @@ args = vars(ap.parse_args())
 # **********
 img_rows = 200
 img_cols = 200
-img_frames = 19
+img_frames = 20
 total_samples = None
 total_out_put = None
 batch_size = 3  # 每批次训练数量
