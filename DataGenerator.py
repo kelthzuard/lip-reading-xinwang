@@ -54,13 +54,14 @@ class DataGenerator(keras.utils.Sequence):
         self.label_list = label_list
 
     def __len__(self):
-        return len(self.data_list) // self.batch_size
+        return len(os.listdir(self.data_list)) // self.batch_size
 
     def __getitem__(self, idx):
+        print(idx)
         x, y = self.__generate_data(idx)
         return x, y
 
     def __generate_data(self, index):
         training_data = read_img_data(self.data_list, index, self.batch_size)
-        training_label = self.label_list[index:(index+self.batch_size)]
+        training_label = self.label_list[index*self.batch_size:(index+1)*self.batch_size]
         return training_data, training_label
