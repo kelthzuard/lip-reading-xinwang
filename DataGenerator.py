@@ -30,7 +30,7 @@ def read_img_data(data_list, index, batch_size, main_path):
                 img_reshaped = img_readed.reshape(1, img_readed.shape[0], img_readed.shape[1], img_readed.shape[2])
                 if innerIndex == 0:
                     one_package_vector = img_reshaped
-                else:
+                elif innerIndex < img_frames:
                     one_package_vector = np.concatenate((one_package_vector, img_reshaped), axis=0)
         while one_package_vector.shape[0] < img_frames:
             padding_vector = np.zeros(shape=(1, img_rows, img_cols, 3))
@@ -43,7 +43,7 @@ def read_img_data(data_list, index, batch_size, main_path):
             training_set = one_package_vector_reshaped
         else:
             training_set = np.concatenate((training_set, one_package_vector_reshaped), axis=0)
-    # training_set = pre_dealing_data(training_set)
+    training_set = pre_dealing_data(training_set)
     return training_set
 
 

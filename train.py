@@ -3,6 +3,7 @@ import os
 import argparse
 import numpy as np
 from keras.preprocessing.text import Tokenizer
+import tensorflow as tf
 
 from DataGenerator import DataGenerator
 
@@ -10,6 +11,7 @@ from keras.models import Sequential, load_model
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.layers.convolutional import Conv3D, MaxPooling3D
 from keras.layers import ConvLSTM2D, LSTM
+
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--input", required=False,
@@ -28,7 +30,7 @@ img_cols = 200
 img_frames = 21
 train_samples = 8000
 label_out_put = None
-batch_size = 5  # 每批次训练数量
+batch_size = 1  # 每批次训练数量
 
 
 # 从lip_train.txt读取label对应值进一个dict里
@@ -86,7 +88,7 @@ validation_generation = DataGenerator(batch_size=batch_size,
 # *****************
 filters_3D = [32, 50]  # 卷积核数量
 conv_3D = [5, 5]  # 卷积核尺寸
-pool_3D = [3, 3]  # 池化层尺寸
+pool_3D = [2, 3]  # 池化层尺寸
 
 # 加载模型
 model_exists = os.path.exists('model.h5')
@@ -105,7 +107,7 @@ else:
         activation='relu'
     ))
 
-    model.add(MaxPooling3D(pool_size=(2, 2, 2), data_format="channels_last"))
+    model.add(MaxPooling3D(pool_size=(pool_3D[0], pool_3D[0], pool_3D[0]), data_format="channels_last"))
 
     model.add(Conv3D(
         filters_3D[1],
