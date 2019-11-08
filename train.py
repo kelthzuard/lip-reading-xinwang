@@ -1,7 +1,5 @@
-import cv2
 import os
 import argparse
-import numpy as np
 from keras.preprocessing.text import Tokenizer
 
 from DataGenerator import DataGenerator
@@ -9,7 +7,7 @@ from DataGenerator import DataGenerator
 from keras.models import Sequential, load_model
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.layers.convolutional import Conv3D, MaxPooling3D
-from keras.layers import ConvLSTM2D, LSTM
+from keras.layers import LSTM,BatchNormalization,ReLU,AveragePooling3D
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--input", required=False,
@@ -17,17 +15,31 @@ ap.add_argument("-i", "--input", required=False,
 ap.add_argument("-l", "--label", required=False,
                 help="path to input label")
 args = vars(ap.parse_args())
+input_path = args["input"]
+label_path = args["label"]
 
 # **********
 # 定义参数
 # **********
 img_rows = 200
 img_cols = 200
-img_frames = 19
-total_samples = None
-total_out_put = None
-batch_size = 3  # 每批次训练数量
+img_frames = 20
+train_samples = 8000
+label_out_put = None
+batch_size = 1  # 每批次训练数量
 
+filters_3D_1 = 64
+kernel_size1 = (1,3,3)
+stride1 = (1,2,2)
+
+max_pool_size1 = (1,3,3)
+max_pool_stride1 = [1,2,2]
+max_pool_pad1 = (0,1,1)
+bn_size = 4
+drop_rate = 0.2
+num_classes = 1000
+growth_rate = 32
+block_config = (4,8,12,8)
 
 # 从lip_train.txt读取label对应值进一个dict里
 def read_and_initial_label(file_path):
@@ -46,12 +58,10 @@ def read_and_initial_label(file_path):
 
 def reform_label_order(main_path, label_list):
     label = []
-    total_samples = total_out_put = 0
     categories = os.listdir(main_path)
     for index, package in enumerate(categories):
         label.append(label_list[package])
-        total_samples  = total_samples + 1 # 确定所有样本数量
-    return label, total_samples
+    return label
 
 
 def encode_label(label):
@@ -59,68 +69,84 @@ def encode_label(label):
     tokenizer.fit_on_texts(label)
     sequences = tokenizer.texts_to_sequences(label)
     one_hot_results = tokenizer.texts_to_matrix(label, mode='binary')
-    return one_hot_results, len(one_hot_results[0])
+    return one_hot_results
 
 
-label_list = read_and_initial_label((args["label"]))
-label, total_samples = reform_label_order(args["input"], label_list)
-label, total_out_put = encode_label(label)
+label_list = read_and_initial_label(label_path)
+label = reform_label_order(input_path, label_list)
+label = encode_label(label)
+label_out_put = len(label[0])
 
-training_generation = DataGenerator(batch_size=batch_size, data_list=args["input"], label_list=label)
+# 划分训练集和测试集
+train_categories = os.listdir(input_path)[:train_samples]
+train_label = label[:train_samples]
+training_generation = DataGenerator(batch_size=batch_size,
+                                    data_list=train_categories,
+                                    label_list=train_label,
+                                    main_path=input_path)
+validation_categories = os.listdir(input_path)[(train_samples+1):]
+validation_label = label[(train_samples+1):]
+validation_generation = DataGenerator(batch_size=batch_size,
+                                      data_list=validation_categories,
+                                      label_list=validation_label,
+                                      main_path=input_path)
 
-# *****************
-# 定义3D卷积网络模型参数
-# *****************
-filters_3D = [32, 50]  # 卷积核数量
-conv_3D = [5, 5]  # 卷积核尺寸
-pool_3D = [3, 3]  # 池化层尺寸
 
-# 加载模型
-model_exists = os.path.exists('model.h5')
-if (model_exists):
-    model = load_model('model.h5')
-    print("**************************************************")
-    print("model.h5 model loaded")
+def DenseBlock(model,num_layers,num_input_features,bn_size,growth_rate,drop_rate):
+    for i in range(num_layers):
+        model.add(BatchNormalization())
+        model.add(ReLU())
+        model.add(Conv3D(filters=bn_size*growth_rate,kernel_size=1,strides=1,use_bias=False))
+        model.add(BatchNormalization())
+        model.add(ReLU())
+        model.add(Conv3D(filters=growth_rate,kernel_size=3,strides=1,padding="same",use_bias=False))
+    return model
 
-else:
-    model = Sequential()
+def Transition(model,num_input_features,num_output_features):
+    model.add(BatchNormalization())
+    model.add(ReLU())
+    model.add(Conv3D(filters=num_output_features,kernel_size=1,strides=1,use_bias=False))
+    model.add(AveragePooling3D(pool_size=(1,2,2),strides=(1,2,2)))
+    return model
 
-    model.add(Conv3D(
-        filters_3D[0],
-        (conv_3D[0], conv_3D[0], conv_3D[0]),
-        input_shape=(img_frames, img_rows, img_cols, 3),
-        activation='relu'
-    ))
-
-    model.add(MaxPooling3D(pool_size=(2, 2, 2), data_format="channels_last"))
-
-    model.add(Conv3D(
-        filters_3D[1],
-        (conv_3D[0], conv_3D[0], conv_3D[0]),
-        activation='relu'
-    ))
-
-    model.add(MaxPooling3D(pool_size=(pool_3D[1], pool_3D[1], pool_3D[1]), data_format="channels_last"))
-
-    model.add(Dropout(0.5))
-
-    model.add(ConvLSTM2D(
-        filters=40, kernel_size=(3, 3), padding="same"
-    ))
-
-    model.add(Flatten())
-
-    model.add(Dense(128, kernel_initializer='normal', activation='relu'))
-
-    model.add(Dropout(0.5))
-
-    model.add(Dense(total_out_put, kernel_initializer='normal'))  # 这个地方的输出维度需要和最终的分类维度相同，需要根据数据集的不同指定
-
-    model.add(Activation('softmax'))
-
-    model.compile(loss='categorical_crossentropy', optimizer='RMSprop', metrics=['mse', 'accuracy'])
-
-model.fit_generator(training_generation,
-                    samples_per_epoch=total_samples,
-                    epochs=1
-                    )
+# #如果模型存在，加载已有模型
+# if(os.path.exists('model.h5')):
+#     print('model is loading')
+#     model = load_model('model.h5')
+#
+# #否则使用代码里写的模型
+# else:
+#     model = Sequential()
+#     #第一层卷积层
+#     model.add(Conv3D(filters=filters_3D_1,kernel_size=kernel_size1,strides=stride1,input_shape=(img_frames, img_rows, img_cols, 3),
+#                      activation="relu"))
+#     #批量标准化层
+#     model.add(BatchNormalization())
+#     model.add(ReLU())
+#     #第一层最大池化层
+#     model.add(MaxPooling3D(pool_size = max_pool_size1, strides=max_pool_stride1, padding='same'))
+#     num_features = filters_3D_1
+#     for i,num_layers in enumerate(block_config):
+#         model = DenseBlock(model=model,num_layers = num_layers,num_input_features=num_features,
+#                            bn_size=bn_size,growth_rate=growth_rate,drop_rate=drop_rate)
+#         num_features = num_features + num_features * growth_rate
+#         if i != len(block_config) - 1:
+#             model = Transition(model = model,num_input_features=num_features,num_output_features=num_features//2)
+#             num_features = num_features//2
+#
+#     model.add(BatchNormalization())
+#     model.add(LSTM(536*3*3))
+#     model.add(LSTM(512))
+#
+#
+#     model.add(Dropout(0.5))
+#     model.add(Flatten())
+#     model.add(Dense(1024, kernel_initializer='normal', activation='relu'))
+#     model.add(Dense(label_out_put,kernel_initializer="normal"))
+#     model.add(Activation("softmax"))
+#     model.compile(loss='categorical_crossentropy', optimizer='RMSprop', metrics=['accuracy'])
+#
+# model.fit_generator(training_generation,
+#                     samples_per_epoch=train_samples,
+#                     epochs=1
+#                     )

@@ -5,7 +5,7 @@ import os
 
 img_rows = 200
 img_cols = 200
-img_frames = 19
+img_frames = 20
 
 
 def pre_dealing_data(train_set):
@@ -15,8 +15,8 @@ def pre_dealing_data(train_set):
     return train_set
 
 
-def read_img_data(main_path, index, batch_size):
-    categories = os.listdir(main_path)[index:(index+batch_size)]
+def read_img_data(data_list, index, batch_size, main_path):
+    categories = data_list[index:(index+batch_size)]
     training_set = np.zeros(shape=(1, img_frames, img_rows, img_cols, 3))
     for index, package in enumerate(categories):
         package_path = os.path.join(main_path, package)
@@ -30,7 +30,7 @@ def read_img_data(main_path, index, batch_size):
                 img_reshaped = img_readed.reshape(1, img_readed.shape[0], img_readed.shape[1], img_readed.shape[2])
                 if innerIndex == 0:
                     one_package_vector = img_reshaped
-                else:
+                elif innerIndex < img_frames:
                     one_package_vector = np.concatenate((one_package_vector, img_reshaped), axis=0)
         while one_package_vector.shape[0] < img_frames:
             padding_vector = np.zeros(shape=(1, img_rows, img_cols, 3))
@@ -43,15 +43,16 @@ def read_img_data(main_path, index, batch_size):
             training_set = one_package_vector_reshaped
         else:
             training_set = np.concatenate((training_set, one_package_vector_reshaped), axis=0)
-    # training_set = pre_dealing_data(training_set)
+    training_set = pre_dealing_data(training_set)
     return training_set
 
 
 class DataGenerator(keras.utils.Sequence):
-    def __init__(self, batch_size=20, data_list=None, label_list=None):
+    def __init__(self, batch_size=20, data_list=None, label_list=None, main_path=None):
         self.batch_size = batch_size
         self.data_list = data_list
         self.label_list = label_list
+        self.main_path = main_path
 
     def __len__(self):
         return len(self.data_list) // self.batch_size
@@ -61,6 +62,6 @@ class DataGenerator(keras.utils.Sequence):
         return x, y
 
     def __generate_data(self, index):
-        training_data = read_img_data(self.data_list, index, self.batch_size)
-        training_label = self.label_list[index:(index+self.batch_size)]
+        training_data = read_img_data(self.data_list, index, self.batch_size, self.main_path)
+        training_label = self.label_list[index*self.batch_size:(index+1)*self.batch_size]
         return training_data, training_label
