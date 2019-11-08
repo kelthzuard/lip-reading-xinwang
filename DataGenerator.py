@@ -55,9 +55,10 @@ class DataGenerator(keras.utils.Sequence):
         self.main_path = main_path
 
     def __len__(self):
-        return len(self.data_list) // self.batch_size
+        return len(os.listdir(self.data_list)) // self.batch_size
 
     def __getitem__(self, idx):
+        print(idx)
         x, y = self.__generate_data(idx)
         return x, y
 
